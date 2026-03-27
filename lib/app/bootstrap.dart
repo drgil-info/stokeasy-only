@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import '../core/database/local_database_service.dart';
 import '../core/services/backup_service.dart';
+import '../core/services/database_sync_service.dart';
 import '../features/counts/data/sqlite_stock_counts_repository.dart';
 import '../features/counts/data/stock_count_pdf_service.dart';
 import '../features/counts/domain/stock_counts.dart';
@@ -42,10 +43,15 @@ Future<AppDependencies> initializeAppDependencies({
   );
   final itemSettingsRepository = SqliteItemSettingsRepository(databaseService);
   final backupService = BackupService(databaseService);
+  final databaseSyncService = DatabaseSyncService(
+    databaseService: databaseService,
+    syncIntervalSeconds: 10, // Sincroniza a cada 10 segundos
+  );
 
   return AppDependencies(
     databaseService: databaseService,
     backupService: backupService,
+    databaseSyncService: databaseSyncService,
     getItemsUseCase: GetItemsUseCase(itemsRepository),
     createItemUseCase: CreateItemUseCase(itemsRepository),
     updateItemUseCase: UpdateItemUseCase(itemsRepository),
@@ -87,6 +93,7 @@ Future<AppDependencies> initializeAppDependencies({
 class AppDependencies {
   const AppDependencies({
     required this.databaseService,
+    required this.databaseSyncService,
     required this.backupService,
     required this.getItemsUseCase,
     required this.createItemUseCase,
@@ -112,6 +119,7 @@ class AppDependencies {
   });
 
   final LocalDatabaseService databaseService;
+  final DatabaseSyncService databaseSyncService;
   final BackupService backupService;
   final GetItemsUseCase getItemsUseCase;
   final CreateItemUseCase createItemUseCase;
@@ -136,6 +144,7 @@ class AppDependencies {
   final ExportStockCountResultPdfUseCase exportStockCountResultPdfUseCase;
 
   Future<void> dispose() async {
+    await databaseSyncService.dispose();
     await databaseService.close();
   }
 }

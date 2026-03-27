@@ -36,6 +36,7 @@ class _AppShellState extends State<AppShell> {
   late final CountsController _countsController;
   late final BackupController _backupController;
   late final SettingsController _settingsController;
+  late StreamSubscription? _databaseSyncSubscription;
 
   AppSection _selectedSection = AppSection.dashboard;
 
@@ -87,10 +88,35 @@ class _AppShellState extends State<AppShell> {
     );
 
     unawaited(_loadInitialData());
+    _setupDatabaseSync();
+  }
+
+  void _setupDatabaseSync() {
+    // Inicia o serviço de sincronização
+    unawaited(widget.dependencies.databaseSyncService.startSync());
+
+    // Escuta mudanças no banco de dados
+    _databaseSyncSubscription = widget
+        .dependencies
+        .databaseSyncService
+        .syncStream
+        .listen((event) {
+          // Verifica se houve mudanças em tabelas relevantes
+          if (event.hasChangesIn('items') ||
+              event.hasChangesIn('movements') ||
+              event.hasChangesIn('stock_counts') ||
+              event.hasChangesIn('stock_count_lines')) {
+            // Recarrega os dados se o widget ainda está montado
+            if (mounted) {
+              unawaited(_refreshInventoryData());
+            }
+          }
+        });
   }
 
   @override
   void dispose() {
+    _databaseSyncSubscription?.cancel();
     _dashboardController.dispose();
     _itemsController.dispose();
     _movementsController.dispose();
